@@ -1,0 +1,6 @@
+__*
+*.ini
+tmp
+*.log
+deepin-overtime-tower
+data
