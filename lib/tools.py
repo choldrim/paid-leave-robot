@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 from datetime import timedelta
 
@@ -6,11 +7,13 @@ from openpyxl import load_workbook
 
 class Tools:
     def get_excel_data(self, filename, columns=[], header_index=0):
+        data = {}
+        if not os.path.exists(filename):
+            return data
         wb = load_workbook(filename=filename, read_only=True)
         s_name = wb.get_sheet_names()[0]
         ws = wb[s_name]
 
-        data = {}
         header_row = list(ws.rows)[header_index]
         for c in columns:
             for _header in header_row:
