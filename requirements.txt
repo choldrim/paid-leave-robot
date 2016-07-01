@@ -1,3 +1,4 @@
 openpyxl
 xlsxwriter
 python-dateutil
+pypinyin

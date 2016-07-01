@@ -7,6 +7,12 @@ from openpyxl import load_workbook
 
 class Tools:
     def get_excel_data(self, filename, columns=[], header_index=0):
+        """
+        header_index: the header row index default is 0 (first row)
+        @return
+            if the columns param is: ["name", "time"]
+            {"name":[A, B, C...], "time": [8, 5, 10...]}
+        """
         data = {}
         if not os.path.exists(filename):
             return data

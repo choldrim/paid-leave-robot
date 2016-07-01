@@ -2,18 +2,21 @@
 
 import json
 import sys
+from configparser import ConfigParser
 from datetime import datetime
 from datetime import timedelta
 from pprint import pprint
 
 from dateutil.relativedelta import relativedelta
+from pypinyin import lazy_pinyin
 
 from lib.demail import Email
 from lib.tools import Tools
 from smtplib import SMTPRecipientsRefused
 
 SEND_EMAIL = False
-TARGET = datetime(2016, 5, 1) # 这个要设置为将要统计的月份的第一天
+TARGET = None # 这个要设置为将要统计的月份(如：2016-6)，如果为None则从文件读取
+CONFIG_FILE = "config.ini"
 
 TEMPLATE = """
 {name}同学：
@@ -55,6 +58,7 @@ class PaidLeave:
             start_time = datetime.strptime(start_time_str, "%Y-%m-%d %H:%M")
             end_time = datetime.strptime(end_time_str, "%Y-%m-%d %H:%M")
             del_time = round((end_time - start_time).seconds / 3600, 1)
+            # someone may has multiple overtime record, accumulate those data
             _time = data.get(name, 0)
             data[name] = _time + del_time
             i += 1
@@ -85,12 +89,13 @@ class PaidLeave:
         """
         data = {} # {user: time}
         month_str = self.tools.get_month_str(self.target)
-        filename = "data/%s/used.xlsx" % month_str
-        _data = self.tools.get_excel_data(filename, ["发起人姓名", "请假天数"])
+        filename = "data/%s/leave.xlsx" % month_str
+        excel_data = self.tools.get_excel_data(filename, ["发起人姓名", "请假天数", "请假类型"])
         i = 0
-        for name in _data.get("发起人姓名"):
-            _time = data.get(name, 0)
-            data[name] = _time + 8 * float(_data.get("请假天数")[i])
+        for name in excel_data.get("发起人姓名"):
+            if "倒休" in excel_data.get("请假类型")[i]:
+                time = data.get(name, 0)
+                data[name] = time + 8 * float(excel_data.get("请假天数")[i])
             i += 1
         return data
 
@@ -101,12 +106,23 @@ class PaidLeave:
         """
         data = {} # {user: time}
         month_str = self.tools.get_month_str(self.target)
-        filename = "data/%s/paid.xlsx" % month_str
-        _data = self.tools.get_excel_data(filename, ["姓名", "时长（小时）"])
+        filename = "data/%s/overtime.xlsx" % month_str
+        excel_data = self.tools.get_excel_data(filename, ["姓名", "起始时间", "结束时间", "是否支付"], 1)
         i = 0
-        for name in _data.get("姓名"):
-            _time = data.get(name, 0)
-            data[name] = _time + _data.get("时长（小时）")[i]
+
+        if not len(excel_data):
+            return {}
+
+        for name in excel_data.get("姓名"):
+            if excel_data.get("是否支付")[i] == 1:
+                start_time_str = excel_data.get("起始时间")[i]
+                end_time_str = excel_data.get("结束时间")[i]
+                start_time = datetime.strptime(start_time_str, "%Y-%m-%d %H:%M")
+                end_time = datetime.strptime(end_time_str, "%Y-%m-%d %H:%M")
+                del_time = round((end_time - start_time).seconds / 3600, 1)
+                # someone may has multiple overtime record, accumulate those data
+                _time = data.get(name, 0)
+                data[name] = _time + del_time
             i += 1
         return data
 
@@ -144,7 +160,9 @@ class PaidLeave:
         excel_data = [["姓名", "截止%s剩余" % last_end_date_str, "%s月份新增" % self.target.month, "%s月份已用" % self.target.month, "%s月份支付" % self.target.month, "剩余可用"], ]
         TTT = False
         index = 0
-        for user_guid, user in user_data.items():
+        user_data_list = user_data.values()
+        user_data_list = sorted(user_data_list, key=name_sortor)
+        for user in user_data_list:
             if user.get("paid") == 0 and user.get("overtime") == 0 \
                     and user.get("used_overtime") == 0 and user.get("last_remaining") == 0 \
                     and user.get("remaining") == 0:
@@ -197,8 +215,29 @@ class PaidLeave:
         self.tools.write_to_execl("data/%s/all.xlsx" % self.tools.get_month_str(self.target), excel_data)
 
 
+def name_sortor(item):
+    return "".join(lazy_pinyin(item.get("name"), errors="ignore"))
+
+
+def month_str_to_date(month_str):
+    year = month_str.split("-")[0]
+    month = month_str.split("-")[1]
+    d = datetime(int(year), int(month), 1)
+    return d
+
+
+def get_month_from_config():
+    c = ConfigParser()
+    c.read(CONFIG_FILE)
+    month_str = c["default"]["month"]
+    return month_str
+
+
 if __name__ == "__main__":
     if "--mail" in sys.argv:
         SEND_EMAIL = True
-    pl = PaidLeave(TARGET)
+
+    target = TARGET if TARGET else get_month_from_config()
+    d = month_str_to_date(target)
+    pl = PaidLeave(d)
     pl.work()
