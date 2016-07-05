@@ -90,10 +90,10 @@ class PaidLeave:
         data = {} # {user: time}
         month_str = self.tools.get_month_str(self.target)
         filename = "data/%s/leave.xlsx" % month_str
-        excel_data = self.tools.get_excel_data(filename, ["发起人姓名", "请假天数", "请假类型"])
+        excel_data = self.tools.get_excel_data(filename, ["发起人姓名", "请假天数", "请假类型", "审批结果"])
         i = 0
         for name in excel_data.get("发起人姓名"):
-            if "倒休" in excel_data.get("请假类型")[i]:
+            if "倒休" in excel_data.get("请假类型")[i] and "同意" in excel_data.get("审批结果")[i]:
                 time = data.get(name, 0)
                 data[name] = time + 8 * float(excel_data.get("请假天数")[i])
             i += 1
@@ -201,7 +201,13 @@ class PaidLeave:
                     else:
                         subject = "%s年%s月调休统计" % (self.target.year, self.target.month)
                         self.email.send(receiver, subject, content)
+
                 except SMTPRecipientsRefused as e:
+                    print("failed to sending email")
+                    print(e)
+
+                except Exception as e:
+                    print("failed to sending email")
                     print(e)
 
                 print("finish.")
