@@ -24,21 +24,12 @@ from selenium import webdriver
 from lib.demail import Email
 
 
-now = datetime.now()
-last_month_last_date = now.replace(day=1) - timedelta(days=1)
-#start_date_str = "%s-%s-01" %(last_month_last_date.year, last_month_last_date.month)
-#end_date_str = "%s-%s-%s"  % (last_month_last_date.year, last_month_last_date.month, last_month_last_date.day)
-start_date_str = "2016-04-01"
-end_date_str = "2016-04-30"
-
 INPUT = "user.json"
 OUTPUT = "data/user.json"
 
 SEND_DAY = 1  # day of every month
 USER_CONF_PATH = "%s/.AutoScriptConfig/tower-overtime-reportor/user.ini" % os.getenv("HOME")
-CAL_URL = "https://tower.im/teams/35e3a49a6e2e40fa919070f0cd9706c8/calendar_events/?start=%s&end=%s" % (start_date_str, end_date_str)
 MEMBER_URL = "https://tower.im/teams/35e3a49a6e2e40fa919070f0cd9706c8/members/"
-OVERTIME_CALENDAR_GUID = "b96e5a357a884c7e8c5c2ab12858dd02"
 
 BASE_TOWER_URL = "tower.im/api/v2"
 TOWER_API = "https://%s" % BASE_TOWER_URL
@@ -135,13 +126,6 @@ class BrowserController:
             return False
 
 
-    def get_calendar_events(self):
-        self.browser.get(CAL_URL)
-        el = self.browser.find_element_by_tag_name("body")
-        text = el.text
-        data = json.loads(text)
-        return data
-
     def get_user_info(self, existed_user_data):
         data = {}
 
@@ -197,15 +181,7 @@ class OvertimeAnalyze:
         self.cc = ConfigController()
 
     def work(self):
-        #self.prepare_overtime_data()
         self.prepare_user_info()
-
-    def prepare_overtime_data(self):
-        overtime_data_list = self.get_overtime_data()
-        overtime_data = {"overtimes": overtime_data_list}
-
-        with open("overtime.json", "w") as fp:
-            json.dump(overtime_data, fp)
 
     def prepare_user_info(self):
         user_info = self.get_user_info(self.existed_user_data())
@@ -224,43 +200,6 @@ class OvertimeAnalyze:
         bc = BrowserController()
         user_info = bc.get_user_info(existed_user_data)
         return user_info
-
-
-    def get_overtime_data(self, cal_data=None):
-
-        overtime_datas = []
-
-        if not cal_data:
-            bc = BrowserController()
-            cal_data = bc.get_calendar_events()
-
-        from pprint import pprint
-        pprint(cal_data)
-
-        for item in cal_data.get("calendar_events", []).copy():
-            data = {}
-            caleventable_guid = item.get("caleventable_guid")
-            if caleventable_guid != OVERTIME_CALENDAR_GUID:
-                continue
-            guid = item.get("guid")
-
-            nickname = item.get("creator").get("nickname")
-
-            starts_at = item.get("starts_at", "")
-            ends_at = item.get("ends_at", "")
-            time_re = re.compile("(\d+-\d+-\d+)T(\d+:\d+)*")
-            starts_at = " ".join(time_re.findall(starts_at)[0])
-            ends_at = " ".join(time_re.findall(ends_at)[0])
-
-            token = self.cc.get_tower_token()
-
-            data["name"] = nickname
-            data["starts_at"] = starts_at
-            data["ends_at"] = ends_at
-
-            overtime_datas.append(data)
-
-        return overtime_datas
 
 
 if __name__ == "__main__":
