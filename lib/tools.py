@@ -20,16 +20,28 @@ class Tools:
         s_name = wb.get_sheet_names()[0]
         ws = wb[s_name]
 
-        header_row = list(ws.rows)[header_index]
+        header_cols = list(ws.rows)[header_index]  # get all headers
         for c in columns:
-            for _header in header_row:
+            for _header in header_cols:
                 header_val = _header.value
                 if header_val != c:
                     continue
-                index = _header.column - 1
-                vals = [list(row)[index].value for row in ws.rows]
-                vals = list(vals)[header_index + 1:]
-                data[c] = vals
+                col_index = _header.column - 1
+                vals = [list(row)[col_index].value for row in ws.rows]  # collect the specified col val from every row
+                vals = list(vals)[header_index + 1:]  # remove the rows before header
+
+                # for the openpyxl bug, return such a big None rows sometimes
+                if len(vals) > 10000:
+                    max_available = 0
+                    for i in vals:
+                        if i is None:
+                            break
+                        max_available += 1
+
+                    data[c] = vals[0:max_available]
+                else:
+                    data[c] = vals
+
         return data
 
 
