@@ -41,22 +41,32 @@ class PaidLeave:
         if SEND_EMAIL:
             self.email = Email()
 
-
     def get_overtime(self):
         """
         当月新增
         """
-        data = {} # {user: time}
+        data = {}  # {user: time}
 
         month_str = self.tools.get_month_str(self.target)
         filename = "data/%s/overtime.xlsx" % month_str
         _data = self.tools.get_excel_data(filename, ["姓名", "起始时间", "结束时间"], 1)
         i = 0
         for name in _data.get("姓名"):
-            start_time_str = _data.get("起始时间")[i]
-            end_time_str = _data.get("结束时间")[i]
-            start_time = datetime.strptime(start_time_str, "%Y-%m-%d %H:%M")
-            end_time = datetime.strptime(end_time_str, "%Y-%m-%d %H:%M")
+            if not name:
+                continue
+
+            start_time_val = _data.get("起始时间")[i]
+            end_time_val = _data.get("结束时间")[i]
+            if type(start_time_val) == datetime:
+                start_time = start_time_val
+            else:
+                start_time = datetime.strptime(start_time_val, "%Y-%m-%d %H:%M")
+
+            if type(end_time_val) == datetime:
+                end_time = end_time_val
+            else:
+                end_time = datetime.strptime(end_time_val, "%Y-%m-%d %H:%M")
+
             del_time = round((end_time - start_time).seconds / 3600, 1)
             # someone may has multiple overtime record, accumulate those data
             _time = data.get(name, 0)
@@ -64,12 +74,11 @@ class PaidLeave:
             i += 1
         return data
 
-
     def get_last_remaining(self):
         """
         上月剩余
         """
-        data = {} # {user: time}
+        data = {}  # {user: time}
 
         month_str = self.tools.get_month_str(self.tools.get_last_month_dt(self.target))
         filename = "data/%s/all.xlsx" % month_str
@@ -82,12 +91,11 @@ class PaidLeave:
 
         return data
 
-
     def get_used_overtime(self):
         """
         当月已用
         """
-        data = {} # {user: time}
+        data = {}  # {user: time}
         month_str = self.tools.get_month_str(self.target)
         filename = "data/%s/leave.xlsx" % month_str
         excel_data = self.tools.get_excel_data(filename, ["发起人姓名", "请假天数", "请假类型", "审批结果"])
@@ -99,12 +107,11 @@ class PaidLeave:
             i += 1
         return data
 
-
     def get_paid(self):
         """
         当月支付
         """
-        data = {} # {user: time}
+        data = {}  # {user: time}
         month_str = self.tools.get_month_str(self.target)
         filename = "data/%s/overtime.xlsx" % month_str
         excel_data = self.tools.get_excel_data(filename, ["姓名", "起始时间", "结束时间", "是否支付"], 1)
@@ -114,11 +121,22 @@ class PaidLeave:
             return {}
 
         for name in excel_data.get("姓名"):
+            if not name:
+                continue
+
             if excel_data.get("是否支付")[i] == 1:
-                start_time_str = excel_data.get("起始时间")[i]
-                end_time_str = excel_data.get("结束时间")[i]
-                start_time = datetime.strptime(start_time_str, "%Y-%m-%d %H:%M")
-                end_time = datetime.strptime(end_time_str, "%Y-%m-%d %H:%M")
+                start_time_val = excel_data.get("起始时间")[i]
+                end_time_val = excel_data.get("结束时间")[i]
+                if type(start_time_val) == datetime:
+                    start_time = start_time_val
+                else:
+                    start_time = datetime.strptime(start_time_val, "%Y-%m-%d %H:%M")
+
+                if type(end_time_val) == datetime:
+                    end_time = end_time_val
+                else:
+                    end_time = datetime.strptime(end_time_val, "%Y-%m-%d %H:%M")
+
                 del_time = round((end_time - start_time).seconds / 3600, 1)
                 # someone may has multiple overtime record, accumulate those data
                 _time = data.get(name, 0)
@@ -126,14 +144,12 @@ class PaidLeave:
             i += 1
         return data
 
-
     def get_all_users_data(self):
         users = {}
         with open("data/user.json") as fp:
             users = json.load(fp)
 
         return users
-
 
     def work(self):
         user_data = self.get_all_users_data()
@@ -148,17 +164,15 @@ class PaidLeave:
             user["overtime"] = overtime.get(name, 0)
             user["used_overtime"] = used_overtime.get(name, 0)
             user["last_remaining"] = last_remaining.get(name, 0)
-            user["remaining"] = user["last_remaining"] + user["overtime"] - user["used_overtime"]  - user["paid"]
+            user["remaining"] = user["last_remaining"] + user["overtime"] - user["used_overtime"] - user["paid"]
 
         self.generate_excel(user_data)
-
 
     def generate_excel(self, user_data):
         first_date = self.target.replace(day=1)
         last_end_date = first_date - timedelta(days=1)
         last_end_date_str = "%s月%s日" % (last_end_date.month, last_end_date.day)
         excel_data = [["姓名", "截止%s剩余" % last_end_date_str, "%s月份新增" % self.target.month, "%s月份已用" % self.target.month, "%s月份支付" % self.target.month, "剩余可用"], ]
-        TTT = False
         index = 0
         user_data_list = user_data.values()
         user_data_list = sorted(user_data_list, key=name_sortor)
@@ -167,7 +181,6 @@ class PaidLeave:
                     and user.get("used_overtime") == 0 and user.get("last_remaining") == 0 \
                     and user.get("remaining") == 0:
                 continue
-            end_day = last_end_date.day
             last_month_date = self.tools.get_last_month_dt(self.target)
             old_end_day = last_end_date.day
 
@@ -175,7 +188,7 @@ class PaidLeave:
             end_date = after_month - timedelta(days=1)
 
             params = {
-                    "name": user.get("name"), 
+                    "name": user.get("name"),
                     "last_remaining": user.get("last_remaining"),
                     "overtime": user.get("overtime"),
                     "used_overtime": user.get("used_overtime"),

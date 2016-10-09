@@ -5,6 +5,7 @@ from datetime import timedelta
 import xlsxwriter
 from openpyxl import load_workbook
 
+
 class Tools:
     def get_excel_data(self, filename, columns=[], header_index=0):
         """
@@ -30,7 +31,7 @@ class Tools:
                 vals = [list(row)[col_index].value for row in ws.rows]  # collect the specified col val from every row
                 vals = list(vals)[header_index + 1:]  # remove the rows before header
 
-                # for the openpyxl bug, return such a big None rows sometimes
+                # for the openpyxl bug, return lots of None rows sometimes
                 if len(vals) > 10000:
                     max_available = 0
                     for i in vals:
@@ -44,23 +45,20 @@ class Tools:
 
         return data
 
-
     def get_last_month_dt(self, cur_time):
         _t = cur_time.replace(day=1)
         last_month = _t - timedelta(days=1)
         last_month_dt = last_month.replace(day=1)
         return last_month_dt
 
-
     def get_month_str(self, t):
         return t.strftime("%Y%m")
 
-
-    def write_to_execl(self, filename, cols=[[],]):
+    def write_to_execl(self, filename, cols=[[], ]):
         workbook = xlsxwriter.Workbook(filename)
         worksheet = workbook.add_worksheet()
         COLUMN = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L",
-                "M", "N", "O", "P", "Q", "R", "S", "T"]
+                  "M", "N", "O", "P", "Q", "R", "S", "T"]
         if len(cols[0]) > len(COLUMN):
             print("E: columns too long...")
             return False
